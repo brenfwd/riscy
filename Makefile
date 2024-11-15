@@ -8,8 +8,8 @@ riscy: buffer.o elf.o main.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 examples:
-	riscv64-linux-gnu-gcc examples/quad.c -nostdlib -fPIC -S -o examples/quad.s -Oz
-	riscv64-linux-gnu-gcc examples/quad.s -nostdlib -shared -s -fPIC -o examples/quad.so
+	riscv64-linux-gnu-gcc examples/quad.c -nostdlib -march=rv64g -fPIC -S -o examples/quad.s -Oz
+	riscv64-linux-gnu-gcc examples/quad.s -nostdlib -march=rv64g -shared -s -fPIC -o examples/quad.so
 # riscv64-linux-gnu-gcc examples/quad.s -c -s -o examples/quad.o
 .PHONY: examples
 
