@@ -14,7 +14,7 @@ enum class Endianness {
 class Buffer {
 private:
   std::vector<uint8_t> _data;
-  size_t index = 0;
+  size_t _index = 0;
   Endianness endian = Endianness::Big;
 
   template <typename T>
@@ -50,7 +50,7 @@ public:
     assert(_data.size() >= N);
     T value = 0;
     for (size_t i = 0; i < N; ++i) {
-      value = (value << 8) | _data[i + index];
+      value = (value << 8) | _data[i + _index];
     }
     skip(N);
     return fromBigEndian(value);
@@ -63,8 +63,16 @@ public:
 
   inline void skip(size_t n) {
     assert(_data.size() >= n);
-    index += n;
+    _index += n;
   }
+
+  inline void seek(ptrdiff_t n) {
+    ptrdiff_t new_index = static_cast<ptrdiff_t>(_index) + n;
+    assert(new_index >= 0 && new_index < _data.size());
+    _index = new_index;
+  }
+
+  inline size_t index() const { return _index; }
 };
 
 } // namespace riscy::buffer

@@ -25,4 +25,9 @@ int main() {
     std::cerr << "Failed to read ELF!" << std::endl;
     return 1;
   }
+
+  std::cout << "Read ELF file OK.\n";
+  std::cout << "\t- 0x" << std::hex << (uint16_t)elf->header->isa << std::dec
+            << " ISA\n";
+  std::cout << "\t- " << elf->programHeaders.size() << " Program Header(s)\n";
 }

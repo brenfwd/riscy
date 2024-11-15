@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bitset>
 #include <cstdint>
 #include <memory>
 
@@ -8,12 +9,6 @@
 namespace riscy::elf {
 
 struct ELFHeader {
-  enum class Bitness : uint8_t {
-    k32Bit = 0x01,
-    k64Bit = 0x02,
-    _MAX,
-  };
-  Bitness bitness;
 
   enum class Endianness : uint8_t {
     kLittle = 0x01,
@@ -169,30 +164,83 @@ struct ELFHeader {
 
   //////////
 
-  ELFHeader(Bitness bitness, Endianness endianness, ABI abi, uint8_t abiVersion,
-            FileType type, ISA isa, uint64_t entry, uint64_t phOffset,
-            uint64_t shOffset, uint32_t flags, uint16_t headerSize,
-            uint16_t phEntrySize, uint16_t phEntryCount,
-            uint16_t sectionEntrySize, uint16_t sectionEntryCount,
-            uint16_t sectionNameEntryIndex)
-      :
-
-        bitness(bitness), endianness(endianness), abi(abi),
-        abiVersion(abiVersion), type(type), isa(isa), entry(entry),
-        phOffset(phOffset), shOffset(shOffset), flags(flags),
-        headerSize(headerSize), phEntrySize(phEntrySize),
+  ELFHeader(Endianness endianness, ABI abi, uint8_t abiVersion, FileType type,
+            ISA isa, uint64_t entry, uint64_t phOffset, uint64_t shOffset,
+            uint32_t flags, uint16_t headerSize, uint16_t phEntrySize,
+            uint16_t phEntryCount, uint16_t sectionEntrySize,
+            uint16_t sectionEntryCount, uint16_t sectionNameEntryIndex)
+      : endianness(endianness), abi(abi), abiVersion(abiVersion), type(type),
+        isa(isa), entry(entry), phOffset(phOffset), shOffset(shOffset),
+        flags(flags), headerSize(headerSize), phEntrySize(phEntrySize),
         phEntryCount(phEntryCount), sectionEntrySize(sectionEntrySize),
         sectionEntryCount(sectionEntryCount),
         sectionNameEntryIndex(sectionNameEntryIndex) {}
 };
 
+struct ProgramHeaderEntry {
+  enum class SegmentType : uint32_t {
+    Null = 0x00000000,
+    Loadable = 0x00000001,
+    Dynamic = 0x00000002,
+    Interpreter = 0x00000003,
+    Auxiliary = 0x00000004,
+    _Reserved = 0x00000005,
+    ProgramHeader = 0x00000006,
+    ThreadLocalStorage = 0x00000007,
+  };
+
+  SegmentType type;
+
+  struct Flags {
+    std::bitset<3> bits;
+
+    bool X() const { return bits[2]; }
+    void X(bool v) { bits[2] = v; }
+
+    bool W() const { return bits[1]; }
+    void W(bool v) { bits[1] = v; }
+
+    bool R() const { return bits[0]; }
+    void R(bool v) { bits[0] = v; }
+
+    Flags(uint8_t v) : bits(v) {}
+  };
+
+  Flags flags;
+
+  uint64_t fileOffset;
+
+  uint64_t virtAddr;
+
+  uint64_t physAddr;
+
+  uint64_t size;
+
+  uint64_t sizeInMemory;
+
+  uint64_t alignment;
+
+  ProgramHeaderEntry(SegmentType type, Flags flags, uint64_t fileOffset,
+                     uint64_t virtAddr, uint64_t physAddr, uint64_t size,
+                     uint64_t sizeInMemory, uint64_t alignment)
+      : type(type), flags(flags), fileOffset(fileOffset), virtAddr(virtAddr),
+        physAddr(physAddr), size(size), sizeInMemory(sizeInMemory),
+        alignment(alignment) {}
+};
+
 struct ELF {
   std::shared_ptr<ELFHeader> header;
+  std::vector<std::shared_ptr<ProgramHeaderEntry>> programHeaders;
 
-  ELF(std::shared_ptr<ELFHeader> header) : header(header) {}
+  ELF(std::shared_ptr<ELFHeader> header,
+      std::vector<std::shared_ptr<ProgramHeaderEntry>> programHeaders)
+      : header(header), programHeaders(programHeaders) {}
 };
 
 [[nodiscard]] std::shared_ptr<ELFHeader> readELFHeader(buffer::Buffer &buf);
+
+[[nodiscard]] std::shared_ptr<ProgramHeaderEntry>
+readProgramHeaderEntry(buffer::Buffer &buf);
 
 [[nodiscard]] std::shared_ptr<ELF> readELF(buffer::Buffer &buf);
 

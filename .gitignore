@@ -3,3 +3,4 @@
 *.s
 compile_commands.json
 riscy
+.cache

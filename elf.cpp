@@ -7,7 +7,7 @@ std::shared_ptr<ELFHeader> readELFHeader(buffer::Buffer &buf) {
   assert(magic == 0x7F454c46);
 
   uint8_t cls = buf.pop_u8();
-  assert(cls == 1 || cls == 2);
+  assert(cls == 2); // 64-bit only
 
   uint8_t endian = buf.pop_u8();
   if (endian == (uint8_t)ELFHeader::Endianness::kBig)
@@ -33,26 +33,14 @@ std::shared_ptr<ELFHeader> readELFHeader(buffer::Buffer &buf) {
   uint16_t machine = buf.pop_u16();
   assert(machine < (uint16_t)ELFHeader::ISA::_MAX);
 
-  uint8_t version2 = buf.pop_u8();
+  uint8_t version2 = buf.pop_u32();
   assert(version2 == 1);
 
-  uint64_t entry;
-  if (cls == (uint8_t)ELFHeader::Bitness::k32Bit)
-    entry = buf.pop_u64();
-  else
-    entry = buf.pop_u32();
+  uint64_t entry = buf.pop_u64();
 
-  uint64_t phoff;
-  if (cls == (uint8_t)ELFHeader::Bitness::k64Bit)
-    phoff = buf.pop_u64();
-  else
-    phoff = buf.pop_u32();
+  uint64_t phoff = buf.pop_u64();
 
-  uint64_t shoff;
-  if (cls == (uint8_t)ELFHeader::Bitness::k64Bit)
-    shoff = buf.pop_u64();
-  else
-    shoff = buf.pop_u32();
+  uint64_t shoff = buf.pop_u64();
 
   uint32_t flags = buf.pop_u32();
 
@@ -69,16 +57,29 @@ std::shared_ptr<ELFHeader> readELFHeader(buffer::Buffer &buf) {
   uint16_t shstrndx = buf.pop_u16();
 
   return std::make_shared<ELFHeader>(
-      (ELFHeader::Bitness)cls, (ELFHeader::Endianness)endian,
-      (ELFHeader::ABI)abi, abiVersion, (ELFHeader::FileType)type,
-      (ELFHeader::ISA)machine, entry, phoff, shoff, flags, ehsize, phentsize,
-      phnum, shentsize, shnum, shstrndx);
+      (ELFHeader::Endianness)endian, (ELFHeader::ABI)abi, abiVersion,
+      (ELFHeader::FileType)type, (ELFHeader::ISA)machine, entry, phoff, shoff,
+      flags, ehsize, phentsize, phnum, shentsize, shnum, shstrndx);
+}
+
+std::shared_ptr<ProgramHeaderEntry>
+readProgramHeaderEntry(buffer::Buffer &buf) {
+  return nullptr;
 }
 
 std::shared_ptr<ELF> readELF(buffer::Buffer &buf) {
   auto header = readELFHeader(buf);
   assert(header);
-  return std::make_shared<ELF>(header);
+
+  std::vector<std::shared_ptr<ProgramHeaderEntry>> programHeaders;
+
+  programHeaders.reserve(header->phEntryCount);
+  for (int i = 0; i < header->phEntryCount; i++) {
+    buf.seek(header->phOffset + header->phEntrySize * i);
+    programHeaders.push_back(readProgramHeaderEntry(buf));
+  }
+
+  return std::make_shared<ELF>(header, programHeaders);
 }
 
 } // namespace riscy::elf
