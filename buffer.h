@@ -66,9 +66,8 @@ public:
     _index += n;
   }
 
-  inline void seek(ptrdiff_t n) {
-    ptrdiff_t new_index = static_cast<ptrdiff_t>(_index) + n;
-    assert(new_index >= 0 && new_index < _data.size());
+  inline void seek(size_t new_index) {
+    assert(new_index < _data.size());
     _index = new_index;
   }
 

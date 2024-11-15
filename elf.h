@@ -13,7 +13,6 @@ struct ELFHeader {
   enum class Endianness : uint8_t {
     kLittle = 0x01,
     kBig = 0x02,
-    _MAX,
   };
   Endianness endianness;
 
@@ -36,7 +35,6 @@ struct ELFHeader {
     FenixOS = 0x10,
     Nuxi_CloudABI = 0x11,
     Stratus_Technologies_OpenVOS = 0x12,
-    _MAX,
   };
 
   // EI_OSABI
@@ -50,7 +48,6 @@ struct ELFHeader {
     Executable = 0x02,
     Shared = 0x03,
     Core = 0x04,
-    _MAX,
   };
 
   // e_type
@@ -126,7 +123,6 @@ struct ELFHeader {
     Berkeley_Packet_Filter = 0xF7,
     WDC_65C816 = 0x101,
     LoongArch = 0x102,
-    _MAX,
   };
 
   // e_machine
@@ -187,6 +183,7 @@ struct ProgramHeaderEntry {
     _Reserved = 0x00000005,
     ProgramHeader = 0x00000006,
     ThreadLocalStorage = 0x00000007,
+    PT_HIPROC = 0x7FFFFFFF,
   };
 
   SegmentType type;
@@ -194,14 +191,13 @@ struct ProgramHeaderEntry {
   struct Flags {
     std::bitset<3> bits;
 
-    bool X() const { return bits[2]; }
-    void X(bool v) { bits[2] = v; }
+#define FIELD(name, index)                                                     \
+  bool name() const { return bits[index]; }                                    \
+  void name(bool v) { bits[index] = v; }
 
-    bool W() const { return bits[1]; }
-    void W(bool v) { bits[1] = v; }
-
-    bool R() const { return bits[0]; }
-    void R(bool v) { bits[0] = v; }
+    FIELD(R, 0);
+    FIELD(W, 1);
+    FIELD(X, 2);
 
     Flags(uint8_t v) : bits(v) {}
   };
@@ -228,19 +224,91 @@ struct ProgramHeaderEntry {
         alignment(alignment) {}
 };
 
+struct SectionHeaderEntry {
+  uint32_t nameOffset;
+
+  enum class Type : uint32_t {
+    Null = 0x0,
+    ProgramData = 0x1,
+    SymbolTable = 0x2,
+    StringTable = 0x3,
+    RelocEntriesAddends = 0x4,
+    SymbolHashTable = 0x5,
+    DynamicLinkingInfo = 0x6,
+    Notes = 0x7,
+    ProgramSpaceNoData = 0x8,
+    RelocEntries = 0x9,
+    Reserved = 0x0A,
+    DynamicLinkerSymbolTable = 0x0B,
+    ConstructorArray = 0x0E,
+    DestructorArray = 0x0F,
+    PreConstructorArray = 0x10,
+    SectionGroup = 0x11,
+    ExtendedSectionIndices = 0x12,
+    NumDefinedTypes = 0x13,
+  };
+  Type type;
+
+  struct Flags {
+    std::bitset<14> bits;
+
+#define FIELD(name, index)                                                     \
+  bool name() const { return bits[index]; }                                    \
+  void name(bool v) { bits[index] = v; }
+
+    FIELD(WRITE, 13);
+    FIELD(ALLOC, 12);
+    FIELD(EXECINSTR, 11);
+    FIELD(MERGE, 10);
+    FIELD(STRINGS, 9);
+    FIELD(INFO_LINK, 8);
+    FIELD(LINK_ORDER, 7);
+    FIELD(OS_NONCONFORMING, 6);
+    FIELD(GROUP, 5);
+    FIELD(TLS, 4);
+    // -- cut --
+#undef FIELD
+
+    Flags(uint64_t v) : bits(v) {}
+  };
+  Flags flags;
+
+  uint64_t virtAddr;
+  uint64_t fileOffset;
+  uint64_t size;
+  uint32_t linkIndex;
+  uint32_t info;
+  uint64_t alignment;
+  uint64_t entrySize;
+
+  SectionHeaderEntry(uint32_t nameOffset, Type type, Flags flags,
+                     uint64_t virtAddr, uint64_t fileOffset, uint64_t size,
+                     uint32_t linkIndex, uint32_t info, uint64_t alignment,
+                     uint64_t entrySize)
+      : nameOffset(nameOffset), type(type), flags(flags), virtAddr(virtAddr),
+        fileOffset(fileOffset), size(size), linkIndex(linkIndex), info(info),
+        alignment(alignment), entrySize(entrySize) {}
+};
+
 struct ELF {
   std::shared_ptr<ELFHeader> header;
   std::vector<std::shared_ptr<ProgramHeaderEntry>> programHeaders;
+  std::vector<std::shared_ptr<SectionHeaderEntry>> sectionHeaders;
 
   ELF(std::shared_ptr<ELFHeader> header,
-      std::vector<std::shared_ptr<ProgramHeaderEntry>> programHeaders)
-      : header(header), programHeaders(programHeaders) {}
+      std::vector<std::shared_ptr<ProgramHeaderEntry>> &programHeaders,
+      std::vector<std::shared_ptr<SectionHeaderEntry>> &sectionHeaders)
+      : header(header), programHeaders(programHeaders),
+        sectionHeaders(sectionHeaders) {}
 };
 
 [[nodiscard]] std::shared_ptr<ELFHeader> readELFHeader(buffer::Buffer &buf);
 
 [[nodiscard]] std::shared_ptr<ProgramHeaderEntry>
 readProgramHeaderEntry(buffer::Buffer &buf);
+
+[[nodiscard]] std::shared_ptr<SectionHeaderEntry>
+readSectionHeaderEntry(buffer::Buffer &buf);
 
 [[nodiscard]] std::shared_ptr<ELF> readELF(buffer::Buffer &buf);
 

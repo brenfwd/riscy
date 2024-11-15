@@ -30,4 +30,5 @@ int main() {
   std::cout << "\t- 0x" << std::hex << (uint16_t)elf->header->isa << std::dec
             << " ISA\n";
   std::cout << "\t- " << elf->programHeaders.size() << " Program Header(s)\n";
+  std::cout << "\t- " << elf->sectionHeaders.size() << " Section Header(s)\n";
 }

@@ -21,39 +21,25 @@ std::shared_ptr<ELFHeader> readELFHeader(buffer::Buffer &buf) {
   assert(version == 1);
 
   uint8_t abi = buf.pop_u8();
-  assert(abi < (uint8_t)ELFHeader::ABI::_MAX);
-
   uint8_t abiVersion = buf.pop_u8();
 
   buf.skip(7); // padding
 
   uint16_t type = buf.pop_u16();
-  assert(type < (uint16_t)ELFHeader::FileType::_MAX);
-
   uint16_t machine = buf.pop_u16();
-  assert(machine < (uint16_t)ELFHeader::ISA::_MAX);
 
   uint8_t version2 = buf.pop_u32();
   assert(version2 == 1);
 
   uint64_t entry = buf.pop_u64();
-
   uint64_t phoff = buf.pop_u64();
-
   uint64_t shoff = buf.pop_u64();
-
   uint32_t flags = buf.pop_u32();
-
   uint16_t ehsize = buf.pop_u16();
-
   uint16_t phentsize = buf.pop_u16();
-
   uint16_t phnum = buf.pop_u16();
-
   uint16_t shentsize = buf.pop_u16();
-
   uint16_t shnum = buf.pop_u16();
-
   uint16_t shstrndx = buf.pop_u16();
 
   return std::make_shared<ELFHeader>(
@@ -64,7 +50,38 @@ std::shared_ptr<ELFHeader> readELFHeader(buffer::Buffer &buf) {
 
 std::shared_ptr<ProgramHeaderEntry>
 readProgramHeaderEntry(buffer::Buffer &buf) {
-  return nullptr;
+  uint32_t type = buf.pop_u32();
+
+  ProgramHeaderEntry::Flags flags(buf.pop_u32());
+
+  uint64_t fileOffset = buf.pop_u64();
+  uint64_t virtAddr = buf.pop_u64();
+  uint64_t physAddr = buf.pop_u64();
+  uint64_t size = buf.pop_u64();
+  uint64_t sizeInMemory = buf.pop_u64();
+  uint64_t alignment = buf.pop_u64();
+
+  return std::make_shared<ProgramHeaderEntry>(
+      (ProgramHeaderEntry::SegmentType)type, flags, fileOffset, virtAddr,
+      physAddr, size, sizeInMemory, alignment);
+}
+
+std::shared_ptr<SectionHeaderEntry>
+readSectionHeaderEntry(buffer::Buffer &buf) {
+  uint32_t nameOffset = buf.pop_u32();
+  uint32_t type = buf.pop_u32();
+  SectionHeaderEntry::Flags flags(buf.pop_u64());
+  uint64_t virtAddr = buf.pop_u64();
+  uint64_t fileOffset = buf.pop_u64();
+  uint64_t size = buf.pop_u64();
+  uint32_t linkIndex = buf.pop_u32();
+  uint32_t info = buf.pop_u32();
+  uint64_t alignment = buf.pop_u64();
+  uint64_t entrySize = buf.pop_u64();
+
+  return std::make_shared<SectionHeaderEntry>(
+      nameOffset, (SectionHeaderEntry::Type)type, flags, virtAddr, fileOffset,
+      size, linkIndex, info, alignment, entrySize);
 }
 
 std::shared_ptr<ELF> readELF(buffer::Buffer &buf) {
@@ -72,6 +89,7 @@ std::shared_ptr<ELF> readELF(buffer::Buffer &buf) {
   assert(header);
 
   std::vector<std::shared_ptr<ProgramHeaderEntry>> programHeaders;
+  std::vector<std::shared_ptr<SectionHeaderEntry>> sectionHeaders;
 
   programHeaders.reserve(header->phEntryCount);
   for (int i = 0; i < header->phEntryCount; i++) {
@@ -79,7 +97,13 @@ std::shared_ptr<ELF> readELF(buffer::Buffer &buf) {
     programHeaders.push_back(readProgramHeaderEntry(buf));
   }
 
-  return std::make_shared<ELF>(header, programHeaders);
+  sectionHeaders.reserve(header->sectionEntryCount);
+  for (int i = 0; i < header->sectionEntryCount; i++) {
+    buf.seek(header->shOffset + header->sectionEntrySize * i);
+    sectionHeaders.push_back(readSectionHeaderEntry(buf));
+  }
+
+  return std::make_shared<ELF>(header, programHeaders, sectionHeaders);
 }
 
 } // namespace riscy::elf
