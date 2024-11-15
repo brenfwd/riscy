@@ -1,0 +1,5 @@
+*.o
+*.so
+*.s
+compile_commands.json
+riscy
