@@ -279,6 +279,11 @@ struct SectionHeaderEntry {
         alignment(alignment), entrySize(entrySize), buffer(buffer) {}
 };
 
+struct SymbolLocation {
+  uint64_t value;
+  uint64_t size;
+};
+
 struct ELF {
   std::shared_ptr<ELFHeader> header;
   std::vector<std::shared_ptr<ProgramHeaderEntry>> programHeaders;
@@ -328,7 +333,7 @@ struct ELF {
     return symt;
   }
 
-  [[nodiscard]] inline std::optional<size_t>
+  [[nodiscard]] inline std::optional<SymbolLocation>
   getSymbolLocation(const std::string &name) {
     auto symt = getSymbolTable();
     if (!symt) {
@@ -352,7 +357,6 @@ struct ELF {
       uint64_t size;
     };
 
-    // Validate the symbol table size and alignment
     if (symt->entrySize != sizeof(Symbol)) {
       throw std::runtime_error("Unexpected symbol table entry size");
     }
@@ -372,11 +376,11 @@ struct ELF {
       std::string symName = stringTable->buffer.pop_null_string();
 
       if (symName == name) {
-        return sym.value;
+        return SymbolLocation{sym.value, sym.size};
       }
     }
 
-    return std::nullopt; // Symbol not found
+    return std::nullopt;
   }
 };
 
