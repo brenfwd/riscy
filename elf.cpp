@@ -1,5 +1,7 @@
 #include "elf.h"
 
+#include <iostream>
+
 namespace riscy::elf {
 
 std::shared_ptr<ELFHeader> readELFHeader(buffer::Buffer &buf) {
@@ -52,7 +54,7 @@ std::shared_ptr<ProgramHeaderEntry>
 readProgramHeaderEntry(buffer::Buffer &buf) {
   uint32_t type = buf.pop_u32();
 
-  ProgramHeaderEntry::Flags flags(buf.pop_u32());
+  uint32_t flags = buf.pop_u32();
 
   uint64_t fileOffset = buf.pop_u64();
   uint64_t virtAddr = buf.pop_u64();
@@ -70,7 +72,7 @@ std::shared_ptr<SectionHeaderEntry>
 readSectionHeaderEntry(buffer::Buffer &buf) {
   uint32_t nameOffset = buf.pop_u32();
   uint32_t type = buf.pop_u32();
-  SectionHeaderEntry::Flags flags(buf.pop_u64());
+  uint64_t flags = buf.pop_u64();
   uint64_t virtAddr = buf.pop_u64();
   uint64_t fileOffset = buf.pop_u64();
   uint64_t size = buf.pop_u64();
@@ -79,9 +81,11 @@ readSectionHeaderEntry(buffer::Buffer &buf) {
   uint64_t alignment = buf.pop_u64();
   uint64_t entrySize = buf.pop_u64();
 
+  auto sectionBuf = buf.slice(fileOffset, fileOffset + size);
+
   return std::make_shared<SectionHeaderEntry>(
       nameOffset, (SectionHeaderEntry::Type)type, flags, virtAddr, fileOffset,
-      size, linkIndex, info, alignment, entrySize);
+      size, linkIndex, info, alignment, entrySize, sectionBuf);
 }
 
 std::shared_ptr<ELF> readELF(buffer::Buffer &buf) {

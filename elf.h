@@ -1,8 +1,9 @@
 #pragma once
 
-#include <bitset>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
 
 #include "buffer.h"
 
@@ -188,21 +189,13 @@ struct ProgramHeaderEntry {
 
   SegmentType type;
 
-  struct Flags {
-    std::bitset<3> bits;
-
-#define FIELD(name, index)                                                     \
-  bool name() const { return bits[index]; }                                    \
-  void name(bool v) { bits[index] = v; }
-
-    FIELD(R, 0);
-    FIELD(W, 1);
-    FIELD(X, 2);
-
-    Flags(uint8_t v) : bits(v) {}
+  enum Flags : uint32_t {
+    PF_X = 0x1,
+    PF_W = 0x2,
+    PF_R = 0x4,
   };
 
-  Flags flags;
+  uint32_t flags;
 
   uint64_t fileOffset;
 
@@ -216,7 +209,7 @@ struct ProgramHeaderEntry {
 
   uint64_t alignment;
 
-  ProgramHeaderEntry(SegmentType type, Flags flags, uint64_t fileOffset,
+  ProgramHeaderEntry(SegmentType type, uint32_t flags, uint64_t fileOffset,
                      uint64_t virtAddr, uint64_t physAddr, uint64_t size,
                      uint64_t sizeInMemory, uint64_t alignment)
       : type(type), flags(flags), fileOffset(fileOffset), virtAddr(virtAddr),
@@ -249,29 +242,23 @@ struct SectionHeaderEntry {
   };
   Type type;
 
-  struct Flags {
-    std::bitset<14> bits;
-
-#define FIELD(name, index)                                                     \
-  bool name() const { return bits[index]; }                                    \
-  void name(bool v) { bits[index] = v; }
-
-    FIELD(WRITE, 13);
-    FIELD(ALLOC, 12);
-    FIELD(EXECINSTR, 11);
-    FIELD(MERGE, 10);
-    FIELD(STRINGS, 9);
-    FIELD(INFO_LINK, 8);
-    FIELD(LINK_ORDER, 7);
-    FIELD(OS_NONCONFORMING, 6);
-    FIELD(GROUP, 5);
-    FIELD(TLS, 4);
-    // -- cut --
-#undef FIELD
-
-    Flags(uint64_t v) : bits(v) {}
+  enum Flags : uint64_t {
+    SHF_WRITE = 0x1,
+    SHF_ALLOC = 0x2,
+    SHF_EXECINSTR = 0x4,
+    SHF_MERGE = 0x10,
+    SHF_STRINGS = 0x20,
+    SHF_INFO_LINK = 0x40,
+    SHF_LINK_ORDER = 0x80,
+    SHF_OS_NONCONFORMING = 0x100,
+    SHF_GROUP = 0x200,
+    SHF_TLS = 0x400,
+    SHF_MASKOS = 0x0FF00000,
+    SHF_MASKPROC = 0xF0000000,
+    SHF_ORDERED = 0x4000000,
+    SHF_EXCLUDE = 0x8000000,
   };
-  Flags flags;
+  uint64_t flags;
 
   uint64_t virtAddr;
   uint64_t fileOffset;
@@ -281,13 +268,15 @@ struct SectionHeaderEntry {
   uint64_t alignment;
   uint64_t entrySize;
 
-  SectionHeaderEntry(uint32_t nameOffset, Type type, Flags flags,
+  buffer::Buffer buffer;
+
+  SectionHeaderEntry(uint32_t nameOffset, Type type, uint64_t flags,
                      uint64_t virtAddr, uint64_t fileOffset, uint64_t size,
                      uint32_t linkIndex, uint32_t info, uint64_t alignment,
-                     uint64_t entrySize)
+                     uint64_t entrySize, buffer::Buffer &buffer)
       : nameOffset(nameOffset), type(type), flags(flags), virtAddr(virtAddr),
         fileOffset(fileOffset), size(size), linkIndex(linkIndex), info(info),
-        alignment(alignment), entrySize(entrySize) {}
+        alignment(alignment), entrySize(entrySize), buffer(buffer) {}
 };
 
 struct ELF {
@@ -300,6 +289,95 @@ struct ELF {
       std::vector<std::shared_ptr<SectionHeaderEntry>> &sectionHeaders)
       : header(header), programHeaders(programHeaders),
         sectionHeaders(sectionHeaders) {}
+
+  [[nodiscard]] inline std::shared_ptr<SectionHeaderEntry> getStringTable() {
+    std::shared_ptr<SectionHeaderEntry> stringTable = nullptr;
+    for (auto &section : sectionHeaders) {
+      if (section->type == SectionHeaderEntry::Type::StringTable &&
+          section->flags == 0) {
+        if (stringTable) {
+          throw std::runtime_error("Multiple string tables found");
+        }
+        stringTable = section;
+      }
+    }
+    return stringTable;
+  }
+
+  [[nodiscard]] inline std::shared_ptr<SectionHeaderEntry>
+  getSectionByName(const std::string &str) {
+    auto stringTable = getStringTable();
+    assert(stringTable);
+
+    for (auto &section : sectionHeaders) {
+      stringTable->buffer.seek(section->nameOffset);
+      std::string name = stringTable->buffer.pop_null_string();
+      if (name == str) {
+        return section;
+      }
+    }
+
+    return nullptr;
+  }
+
+  [[nodiscard]] inline std::shared_ptr<SectionHeaderEntry> getSymbolTable() {
+    auto symt = getSectionByName(".symtab");
+    if (!symt) {
+      symt = getSectionByName(".dynsym");
+    }
+    return symt;
+  }
+
+  [[nodiscard]] inline std::optional<size_t>
+  getSymbolLocation(const std::string &name) {
+    auto symt = getSymbolTable();
+    if (!symt) {
+      throw std::runtime_error("Symbol table not found");
+    }
+
+    // Determine the associated string table
+    auto stringTable = getSectionByName(
+        symt->type == SectionHeaderEntry::Type::SymbolTable ? ".strtab"
+                                                            : ".dynstr");
+    if (!stringTable) {
+      throw std::runtime_error("String table not found");
+    }
+
+    struct Symbol {
+      uint32_t nameOffset;
+      uint8_t info;
+      uint8_t other;
+      uint16_t sectionIndex;
+      uint64_t value;
+      uint64_t size;
+    };
+
+    // Validate the symbol table size and alignment
+    if (symt->entrySize != sizeof(Symbol)) {
+      throw std::runtime_error("Unexpected symbol table entry size");
+    }
+
+    size_t symbolCount = symt->size / sizeof(Symbol);
+    for (size_t i = 0; i < symbolCount; ++i) {
+      symt->buffer.seek(i * sizeof(Symbol));
+      Symbol sym;
+      sym.nameOffset = symt->buffer.pop_u32();
+      sym.info = symt->buffer.pop_u8();
+      sym.other = symt->buffer.pop_u8();
+      sym.sectionIndex = symt->buffer.pop_u16();
+      sym.value = symt->buffer.pop_u64();
+      sym.size = symt->buffer.pop_u64();
+
+      stringTable->buffer.seek(sym.nameOffset);
+      std::string symName = stringTable->buffer.pop_null_string();
+
+      if (symName == name) {
+        return sym.value;
+      }
+    }
+
+    return std::nullopt; // Symbol not found
+  }
 };
 
 [[nodiscard]] std::shared_ptr<ELFHeader> readELFHeader(buffer::Buffer &buf);

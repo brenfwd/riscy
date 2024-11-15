@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace riscy::buffer {
@@ -61,17 +62,52 @@ public:
   [[nodiscard]] inline uint32_t pop_u32() { return pop<uint32_t>(); }
   [[nodiscard]] inline uint32_t pop_u64() { return pop<uint64_t>(); }
 
+  [[nodiscard]] inline std::string pop_null_string() {
+    std::string str;
+    while (_data[_index] != 0) {
+      str.push_back(_data[_index]);
+      skip(1);
+    }
+    skip(1);
+    return str;
+  }
+
   inline void skip(size_t n) {
     assert(_data.size() >= n);
     _index += n;
   }
 
   inline void seek(size_t new_index) {
-    assert(new_index < _data.size());
+    assert(_data.size() == 0 || new_index < _data.size());
     _index = new_index;
   }
 
-  inline size_t index() const { return _index; }
+  [[nodiscard]] inline size_t index() const { return _index; }
+
+  [[nodiscard]] inline Buffer slice(size_t start, size_t end) const {
+    if (start == end) {
+      return Buffer();
+    }
+    assert(start < end);
+    assert(end <= _data.size());
+    auto result = Buffer(_data.begin() + start, _data.begin() + end);
+    result.setEndianness(endian);
+    return result;
+  }
+
+  [[nodiscard]] inline size_t size() const { return _data.size(); }
+
+  [[nodiscard]] inline bool empty() const { return _data.empty(); }
+
+  [[nodiscard]] inline const uint8_t *data() const { return _data.data(); }
+
+  [[nodiscard]] inline uint8_t *data() { return _data.data(); }
+
+  [[nodiscard]] inline uint8_t operator[](size_t i) const {
+    return _data.at(i);
+  }
+
+  [[nodiscard]] inline uint8_t &operator[](size_t i) { return _data.at(i); }
 };
 
 } // namespace riscy::buffer
