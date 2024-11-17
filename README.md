@@ -28,3 +28,9 @@ The end-goal of the project is to recompile (using C/C++ as an intermediate) a s
 The next step will involve creating a runtime state machine that will simulate RISC-V register and memory state. This will allow the use of C/C++ as an intermediate representation and avoids having to perform target-specific code generation (i.e. register mapping).
 
 After this is completed, the codegen can be targeted at the state machine data structures, and then sent to a C/C++ compiler for final compilation.
+
+Currently only part of the RV32I and RV32M instruction sets are implemented, but generic decoding support is already there for all instructions.
+
+## License
+
+MIT License. See [LICENSE](./LICENSE).
