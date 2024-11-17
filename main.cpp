@@ -48,7 +48,9 @@ int main() {
     std::cout << std::hex << std::setfill('0') << std::setw(8) << instr_int
               << " " << std::dec;
     auto instr = riscy::risc::decode_instr(instr_int);
+    std::cout << "\t";
     instr->operator<<(std::cout) << "\n";
+    std::cout << "\t" << instr->to_string() << "\n";
     // std::cout << (uint32_t)buf.pop_u8() << " ";
   }
 }

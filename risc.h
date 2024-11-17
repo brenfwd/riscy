@@ -3,6 +3,7 @@
 #include <bitset>
 #include <cassert>
 #include <cstdint>
+#include <format>
 #include <iostream>
 #include <memory>
 
@@ -18,6 +19,8 @@ struct Instr {
   virtual inline std::ostream &operator<<(std::ostream &os) {
     return os << "Instr{opcode=" << opcode << "}";
   }
+
+  virtual inline std::string to_string() { return "???"; }
 };
 
 struct InstrR : public Instr {
@@ -31,6 +34,59 @@ struct InstrR : public Instr {
     return os << "InstrR{opcode=" << opcode << ",rd=" << rd
               << ",funct3=" << funct3 << ",rs1=" << rs1 << ",rs2=" << rs2
               << ",funct7=" << funct7 << "}";
+  }
+
+  inline std::string to_string() override {
+    switch (funct3) {
+    case 0b000: // ADD,SUB,(MUL)
+    {
+      std::string oper = "<UNKNOWN OPERATOR>";
+      switch (funct7) {
+      case 0b0000000:
+        oper = "+";
+        break;
+      case 0b0100000:
+        oper = "-";
+        break;
+      case 0b0000001:
+        oper = "*";
+        break;
+      }
+      return std::format("x{} = x{} {} x{}", rd, rs1, oper, rs2);
+    }
+    case 0b001: // SLL
+    {
+      break;
+    }
+    case 0b010: // SLT
+    {
+      break;
+    }
+    case 0b011: // SLTU
+    {
+      break;
+    }
+    case 0b100: // XOR
+    {
+      break;
+    }
+    case 0b101: // SRL,SRA
+    {
+      break;
+    }
+    case 0b110: // OR
+    {
+      break;
+    }
+    case 0b111: // AND
+    {
+      break;
+    }
+    default: {
+      return "";
+    }
+    }
+    return ""; // TODO: remove
   }
 };
 
