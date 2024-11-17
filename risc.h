@@ -389,7 +389,9 @@ constexpr std::string_view InstrTypeNames[] = {
   case InstrType::BRANCH: {
     // B-type
     // imm[12] | imm[10:5] | rs2    | rs1    | funct3 | imm[4:1] | imm[11] |
-    // opcode 31        30-25       24-20    19-15    14-12    11-8       7 6-0
+    // opcode
+    // 31        30-25       24-20    19-15    14-12    11-8       7
+    // 6-0
     int imm = ((n >> 7) & 0b111111) | ((n >> 25) & 0b111111111111) << 1;
     int funct3 = (n >> 12) & 0b111;
     int rs1 = (n >> 15) & 0b11111;
