@@ -2,7 +2,7 @@
 
 An ELF loader, RISC-V decoder/disassembler, and C code-generator... In other words, a very basic decompiler.
 
-ELF parsing/loading is in [elf.h](./elf.h)/[elf.cpp](./elf.cpp); RISC-V disassembler and codegen (WIP) are in [risc.h](./risc.h); buffer helper is in [buffer.h](./buffer.h)/[buffer.cpp](./buffer.cpp).
+ELF parsing/loading is in [elf.h](./elf.h)/[elf.cpp](./elf.cpp); RISC-V disassembler and codegen (WIP) are in [risc.h](./risc.h); buffer helper is in [buffer.h](./buffer.h).
 
 ## Testing / Output
 

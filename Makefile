@@ -4,7 +4,7 @@ CXXFLAGS := -Wall -Werror -std=c++20 -g3 -O0 -static
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-riscy: buffer.o elf.o main.o
+riscy: elf.o main.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 examples:
