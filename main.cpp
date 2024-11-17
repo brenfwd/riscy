@@ -6,6 +6,7 @@
 
 #include "buffer.h"
 #include "elf.h"
+#include "risc.h"
 
 int main() {
   std::ifstream is("examples/quad.so", std::ios_base::binary | std::ios::ate);
@@ -28,45 +29,6 @@ int main() {
   }
 
   std::cout << "Read ELF file OK.\n";
-  // std::cout << "\t- 0x" << std::hex << (uint16_t)elf->header->isa << std::dec
-  //           << " ISA\n";
-
-  // std::cout << "\t- " << elf->programHeaders.size() << " Program
-  // Header(s)\n";
-
-  // std::cout << "\t- " << elf->sectionHeaders.size() << " Section
-  // Header(s)\n"; for (auto &section : elf->sectionHeaders) {
-  //   std::cout << "\t\t- flags = 0x" << std::hex << section->flags <<
-  //   std::endl;
-
-  //   std::cout << "\t\t- strings? "
-  //             << (section->flags &
-  //             riscy::elf::SectionHeaderEntry::SHF_STRINGS)
-  //             << std::endl;
-
-  //   std::cout << "\t\t- exec? "
-  //             << (section->flags &
-  //                 riscy::elf::SectionHeaderEntry::SHF_EXECINSTR)
-  //             << std::endl;
-
-  //   std::cout << "\t\t- alloc? "
-  //             << (section->flags & riscy::elf::SectionHeaderEntry::SHF_ALLOC)
-  //             << std::endl;
-
-  //   std::cout << "\t\t- type=0x" << std::hex << (uint32_t)section->type
-  //             << std::dec << std::endl;
-  //   buf.seek(section->fileOffset);
-  //   std::cout << "\t\t\t[" << std::hex;
-  //   for (int i = 0; i < section->size; i++) {
-  //     std::cout << (uint32_t)buf.pop_u8() << " ";
-  //   }
-  //   buf.seek(section->fileOffset);
-  //   std::cout << "]" << std::endl << "\t\t\t[";
-  //   for (int i = 0; i < section->size; i++) {
-  //     std::cout << (char)buf.pop_u8();
-  //   }
-  //   std::cout << "]" << std::endl << std::endl;
-  // }
 
   std::cout << std::dec;
 
@@ -81,9 +43,12 @@ int main() {
             << pos.size << std::endl;
 
   buf.seek(pos.value);
-  std::cout << std::hex << "[ ";
-  for (int i = 0; i < pos.size; i++) {
-    std::cout << (uint32_t)buf.pop_u8() << " ";
+  for (int i = 0; i < pos.size; i += 4) {
+    auto instr_int = buf.pop_u32();
+    std::cout << std::hex << std::setfill('0') << std::setw(8) << instr_int
+              << " " << std::dec;
+    auto instr = riscy::risc::decode_instr(instr_int);
+    instr->operator<<(std::cout) << "\n";
+    // std::cout << (uint32_t)buf.pop_u8() << " ";
   }
-  std::cout << "]" << std::endl;
 }
