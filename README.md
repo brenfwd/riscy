@@ -7,10 +7,10 @@ ELF parsing/loading is in [elf.h](./elf.h)/[elf.cpp](./elf.cpp); RISC-V disassem
 ## Testing / Output
 
 > [!NOTE]
-> You will need the `riscv64-linux-gnu-gcc` toolchain installed to run the example target. On Ubuntu, you can get this by installing `gcc-riscv64-linux-gnu`.
+> You will need the `riscv64-linux-gnu-gcc` toolchain installed to run the `examples` target. On Ubuntu, you can get this by installing `gcc-riscv64-linux-gnu`.
 
 ```
-make example
+make examples
 make -B riscy
 ./riscy
 ```
