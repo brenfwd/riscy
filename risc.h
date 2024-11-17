@@ -43,12 +43,12 @@ struct InstrR : public Instr {
       std::string oper = "<UNKNOWN OPERATOR>";
       switch (funct7) {
       case 0b0000000:
-        oper = "+";
+        oper = "+"; // ADD
         break;
-      case 0b0100000:
+      case 0b0100000: // SUB
         oper = "-";
         break;
-      case 0b0000001:
+      case 0b0000001: // MUL
         oper = "*";
         break;
       }
@@ -56,37 +56,68 @@ struct InstrR : public Instr {
     }
     case 0b001: // SLL
     {
+      switch (funct7) {
+      case 0b0000000: // SLL
+        return std::format("x{} = x{} << x{}", rd, rs1, rs2);
+      }
       break;
     }
     case 0b010: // SLT
     {
+      switch (funct7) {
+      case 0b0000000: // SLT
+        return std::format("x{} = (x{} < x{})", rd, rs1, rs2);
+      }
       break;
     }
     case 0b011: // SLTU
     {
+      switch (funct7) {
+      case 0b0000000: // SLTU
+        return std::format("x{} = ((unsigned)x{} < (unsigned)x{})", rd, rs1,
+                           rs2);
+      }
       break;
     }
     case 0b100: // XOR
     {
+      switch (funct7) {
+      case 0b0000000: // XOR
+        return std::format("x{} = x{} ^ x{}", rd, rs1, rs2);
+      }
       break;
     }
     case 0b101: // SRL,SRA
     {
-      break;
+      std::string oper = "<UNKNOWN OPERATOR>";
+      switch (funct7) {
+      case 0b0000000: // SRL
+        oper = ">>";
+        break;
+      case 0b0100000: // SRA
+        oper = ">>>"; // TODO: codegen will be different since no >>> in C
+        break;
+      }
+      return std::format("x{} = x{} {} x{}", rd, rs1, oper, rs2);
     }
     case 0b110: // OR
     {
+      switch (funct7) {
+      case 0b0000000: // OR
+        return std::format("x{} = x{} | x{}", rd, rs1, rs2);
+      }
       break;
     }
     case 0b111: // AND
     {
+      switch (funct7) {
+      case 0b0000000: // AND
+        return std::format("x{} = x{} & x{}", rd, rs1, rs2);
+      }
       break;
     }
-    default: {
-      return "";
     }
-    }
-    return ""; // TODO: remove
+    return "??? (fall-through)";
   }
 };
 
@@ -100,6 +131,107 @@ struct InstrI : public Instr {
     return os << "InstrI{opcode=" << opcode << ",rd=" << rd
               << ",funct3=" << funct3 << ",rs1=" << rs1 << ",imm=" << imm
               << "}";
+  }
+
+  inline std::string to_string() override {
+    switch ((opcode >> 2) & 0b11111) {
+    case 0b00000: // LOAD
+    {
+      std::string oper = "<UNKNOWN OPERATOR>";
+      switch (funct3) {
+      case 0b000: // LB
+        oper = "LB";
+        break;
+      case 0b001: // LH
+        oper = "LH";
+        break;
+      case 0b010: // LW
+        oper = "LW";
+        break;
+      case 0b100: // LBU
+        oper = "LBU";
+        break;
+      case 0b101: // LHU
+        oper = "LHU";
+        break;
+      }
+      return std::format("x{} = {}(x{} + {})", rd, oper, rs1, imm);
+    }
+
+    case 0b00100: // OP_IMM
+    {
+      std::string oper = "<UNKNOWN OPERATOR>";
+      switch (funct3) {
+      case 0b000: // ADDI
+        oper = "+";
+        break;
+      case 0b010: // SLTI
+        oper = "<";
+        break;
+      case 0b011: // SLTIU
+        oper = "<";
+        break;
+      case 0b100: // XORI
+        oper = "^";
+        break;
+      case 0b110: // ORI
+        oper = "|";
+        break;
+      case 0b111: // ANDI
+        oper = "&";
+        break;
+      case 0b001: // SLLI
+        oper = "<<";
+        break;
+      case 0b101: // SRLI,SRAI
+      {
+        if ((imm & 0b100000) == 0) {
+          oper = ">>";
+        } else {
+          oper = ">>>"; // TODO: codegen will be different since no >>> in C
+        }
+        break;
+      }
+      }
+      return std::format("x{} = x{} {} {}", rd, rs1, oper, imm);
+    }
+
+    case 0b11001: // JALR
+    {
+      if (rd == 0 && rs1 == 1 && imm == 0) {
+        return "return";
+      }
+      return std::format("x{} = pc + 4; pc = x{} + {}", rd, rs1, imm);
+    }
+    }
+
+    switch (funct3) {
+    case 0b000: // ADDI
+      return std::format("x{} = x{} + {}", rd, rs1, imm);
+    case 0b010: // SLTI
+      return std::format("x{} = (x{} < {})", rd, rs1, imm);
+    case 0b011: // SLTIU
+      return std::format("x{} = ((unsigned)x{} < {})", rd, rs1, imm);
+    case 0b100: // XORI
+      return std::format("x{} = x{} ^ {}", rd, rs1, imm);
+    case 0b110: // ORI
+      return std::format("x{} = x{} | {}", rd, rs1, imm);
+    case 0b111: // ANDI
+      return std::format("x{} = x{} & {}", rd, rs1, imm);
+    case 0b001: // SLLI
+      return std::format("x{} = x{} << {}", rd, rs1, imm);
+    case 0b101: // SRLI,SRAI
+    {
+      std::string oper = "<UNKNOWN OPERATOR>";
+      if ((imm & 0b100000) == 0) {
+        oper = ">>";
+      } else {
+        oper = ">>>"; // TODO: codegen will be different since no >>> in C
+      }
+      return std::format("x{} = x{} {} {}", rd, rs1, oper, imm & 0b11111);
+    }
+    }
+    return "??? (fall-through)";
   }
 };
 
